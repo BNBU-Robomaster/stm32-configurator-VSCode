@@ -2,7 +2,7 @@
   "name": "stm32-flash-configurator",
   "displayName": "STM32 Flash Configurator",
   "description": "Visual STM32 configuration: F5 debugging, Ctrl+F5 build, program, verify and run. Based on 左岚’s STM32 Debug Configurator.",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "engines": {
     "vscode": "^1.80.0"
   },

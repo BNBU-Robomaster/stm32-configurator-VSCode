@@ -41,6 +41,20 @@ test('regeneration updates owned entries instead of adding duplicates', () => {
  assert.equal(readJsonc(fs.readFileSync(path.join(root, '.vscode/launch.json'), 'utf8')).configurations.length, 1);
 });
 
+test('regeneration repairs legacy gcc matcher without changing unrelated user tasks', () => {
+ writeConfiguration(root, debug, options({ name: 'LED' }));
+ const taskFile = path.join(root, '.vscode/tasks.json');
+ const old = readJsonc(fs.readFileSync(taskFile, 'utf8'));
+ old.tasks[0].problemMatcher = ['$gcc'];
+ old.tasks.push({ label: 'user task', type: 'shell', command: 'gcc', problemMatcher: ['$gcc'] });
+ fs.writeFileSync(taskFile, JSON.stringify(old));
+ writeConfiguration(root, debug, options({ name: 'LED' }));
+ const updated = readJsonc(fs.readFileSync(taskFile, 'utf8')).tasks;
+ assert.equal(updated.length, 3);
+ assert.deepEqual(updated[0].problemMatcher, []);
+ assert.deepEqual(updated[2], old.tasks[2]);
+});
+
 test('two ELFs and two presets have independent profiles and dependencies', () => {
  writeConfiguration(root, debug, options());
  writeConfiguration(root, { ...debug, executable: '${workspaceFolder}/build/Release/LED.elf' }, options({ executable: '${workspaceFolder}/build/Release/LED.elf', buildPreset: 'Release' }));

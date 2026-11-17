@@ -73,7 +73,9 @@ export function makeTasks(profile: FlashProfile, options: FlashOptions): any[] {
     return [
         {
             label: profile.buildTask, type: 'cmake', command: 'build',
-            preset: profile.buildPreset, targets: ['all'], problemMatcher: ['$gcc'],
+            // CMake Tools parses build diagnostics itself. $gcc is contributed by
+            // the optional C/C++ extension and is invalid when it is not installed/enabled.
+            preset: profile.buildPreset, targets: ['all'], problemMatcher: [],
             options: { cwd: '${workspaceFolder}' }
         },
         {

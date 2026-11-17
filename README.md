@@ -71,7 +71,7 @@ npm test
 npm run package
 ```
 
-输出 `stm32-flash-configurator-1.1.0.vsix`。运行时依赖 `jsonc-parser` 随 VSIX 打包；Cortex-Debug 是扩展依赖，CMake Tools 用于构建。
+输出 `stm32-flash-configurator-1.1.1.vsix`。运行时依赖 `jsonc-parser` 随 VSIX 打包；Cortex-Debug 是扩展依赖，CMake Tools 用于构建。
 
 - `npm test`：类型检查、Lint、配置生成/合并、GUI 消息、Ctrl+F5 流程和失败/取消测试。
 - `npm run test:host`：独立 VS Code 窗口中的集成测试，需要本机已安装上述扩展、CMake 和 Make；使用模拟 OpenOCD，不连接硬件。可设置 `STM32_TEST_VSCODE` 指向本机 VS Code 可执行文件，否则测试工具下载 VS Code。测试脚本目前适用于 macOS/Linux。

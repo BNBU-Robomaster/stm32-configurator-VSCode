@@ -6,6 +6,11 @@ STM32 Debug Configurator 扩展的所有重要变更都将记录在此文件中�
 此项目遵循 [语义化版本控制](https://semver.org/lang/zh-CN/)。
 
 
+## [1.1.1] - 2026-11-18
+
+- 修复生成的 CMake 任务引用未注册的 `$gcc` problem matcher 导致配置警告；编译诊断由 CMake Tools 处理。
+- 重新生成配置时更新本插件管理的任务，保留其他用户任务。
+
 ## [1.1.0] - 2026-11-18 (STM32 Flash Configurator fork)
 
 - 新增原生 Ctrl+F5 自动保存、CMake 编译、OpenOCD 烧录/校验/复位运行/退出流程，无 GDB 会话。
