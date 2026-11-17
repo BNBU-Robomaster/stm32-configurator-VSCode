@@ -11,11 +11,18 @@
 
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const assert = require('assert');
 const Module = require('module');
 
+// Use a disposable bundle tree, never the developer's or CI runner's installation.
+const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'stm32-toolchain-test-'));
+const originalLocalAppData = process.env.LOCALAPPDATA;
+const localAppData = path.join(testRoot, 'Local AppData');
+process.env.LOCALAPPDATA = localAppData;
+
 // 把 require('vscode') 拦截成空对象，让被测模块在 Node 环境下能被 require
-const stubPath = path.join(__dirname, '_vscode-stub.js');
+const stubPath = path.join(testRoot, '_vscode-stub.js');
 fs.writeFileSync(
     stubPath,
     'module.exports = { workspace: { getConfiguration: () => ({ get: () => null }) } };\n'
@@ -39,8 +46,12 @@ const { isStBundleArmToolchainPath, toPortableArmToolchainPath, deriveGdbPath } 
 const { expandPath } = require(path.join(__dirname, '..', 'out', 'utils', 'pathUtils.js'));
 
 function cleanup() {
-    try { fs.unlinkSync(stubPath); } catch {}
+    Module._resolveFilename = origResolve;
+    if (originalLocalAppData === undefined) { delete process.env.LOCALAPPDATA; }
+    else { process.env.LOCALAPPDATA = originalLocalAppData; }
+    fs.rmSync(testRoot, { recursive: true, force: true });
 }
+process.on('exit', cleanup);
 
 let passed = 0;
 let failed = 0;
@@ -56,19 +67,15 @@ function test(name, fn) {
     }
 }
 
-const localAppData = process.env.LOCALAPPDATA;
-if (!localAppData) {
-    console.log('LOCALAPPDATA not set; skipping (Windows-only).');
-    cleanup();
-    process.exit(0);
-}
-
 console.log('armToolchain helpers — automated tests');
 console.log('='.repeat(60));
 
 const stBundleBin = path.join(localAppData, 'stm32cube/bundles/gnu-tools-for-stm32/13.3.1+st.9/bin').replace(/\\/g, '/');
 const stBundleGcc = stBundleBin + '/arm-none-eabi-gcc.exe';
 const independentGcc = 'E:/path/c_c++/Arm GNU Toolchain arm-none-eabi/bin/arm-none-eabi-gcc.exe';
+const gdbExecutable = process.platform === 'win32' ? 'arm-none-eabi-gdb.exe' : 'arm-none-eabi-gdb';
+fs.mkdirSync(stBundleBin, { recursive: true });
+fs.writeFileSync(stBundleGcc, 'fixture, not an executable');
 
 console.log('\n[unit] isStBundleArmToolchainPath');
 test('returns true for ST bundle bin path', () => {
@@ -103,32 +110,29 @@ test('derives gdb from gcc.exe path inside ST bundle (returns portable form)', (
     const result = deriveGdbPath(stBundleGcc);
     assert.strictEqual(
         result,
-        '${env:LOCALAPPDATA}/stm32cube/bundles/gnu-tools-for-stm32/13.3.1+st.9/bin/arm-none-eabi-gdb.exe'
+        '${env:LOCALAPPDATA}/stm32cube/bundles/gnu-tools-for-stm32/13.3.1+st.9/bin/' + gdbExecutable
     );
 });
 test('derives gdb from bin dir path inside ST bundle', () => {
     const result = deriveGdbPath(stBundleBin);
     assert.strictEqual(
         result,
-        '${env:LOCALAPPDATA}/stm32cube/bundles/gnu-tools-for-stm32/13.3.1+st.9/bin/arm-none-eabi-gdb.exe'
+        '${env:LOCALAPPDATA}/stm32cube/bundles/gnu-tools-for-stm32/13.3.1+st.9/bin/' + gdbExecutable
     );
 });
 test('derives gdb from non-bundle gcc.exe path (absolute)', () => {
     const result = deriveGdbPath(independentGcc);
     assert.strictEqual(
         result,
-        'E:/path/c_c++/Arm GNU Toolchain arm-none-eabi/bin/arm-none-eabi-gdb.exe'
+        'E:/path/c_c++/Arm GNU Toolchain arm-none-eabi/bin/' + gdbExecutable
     );
 });
 
-console.log('\n[integration] expandPath wildcard against real ST bundle');
-const stBundleGlob = '%LOCALAPPDATA%\\stm32cube\\bundles\\gnu-tools-for-stm32\\*\\bin\\arm-none-eabi-gcc.exe';
+console.log('\n[integration] expandPath wildcard against a temporary ST bundle');
+const stBundleGlob = '%LOCALAPPDATA%/stm32cube/bundles/gnu-tools-for-stm32/*/bin/arm-none-eabi-gcc.exe';
 const matches = expandPath(stBundleGlob);
-test('finds at least one ST bundle gcc.exe via wildcard', () => {
-    assert.ok(
-        matches.length > 0,
-        `expected ≥1 match, got ${JSON.stringify(matches)}`
-    );
+test('finds the fixture ST bundle gcc.exe via wildcard', () => {
+    assert.deepStrictEqual(matches.map(m => m.replace(/\\/g, '/')), [stBundleGcc]);
 });
 test('all matches actually exist on disk', () => {
     matches.forEach((m) => {
