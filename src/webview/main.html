@@ -150,8 +150,12 @@
             <section class="card span-12" id="flash-section">
                 <div class="card-title"><h2 data-i18n="flashTitle">Build, flash and run</h2></div>
                 <small class="hint" id="flash-workspace"></small>
-                <div class="field toggle-field">
+                <div class="field toggle-field" id="flash-toggle-group">
                     <label class="toggle-label"><input type="checkbox" id="flashEnabled" checked><span data-i18n="flashEnabled">Ctrl+F5: build, flash and exit</span></label>
+                </div>
+                <div class="field toggle-field">
+                    <label class="toggle-label"><input type="checkbox" id="completionEnabled" checked><span data-i18n="completionEnabled">Automatically configure C/C++ completion (clangd)</span></label>
+                    <small class="hint" data-i18n="completionHelp">Use the selected preset for code completion. Existing custom compilation directories are preserved.</small>
                 </div>
                 <div class="field" id="build-preset-group">
                     <label for="buildPreset" data-i18n="buildPreset">CMake build preset</label>
@@ -159,6 +163,7 @@
                     <small class="hint" data-i18n="flashHelp">Saves your files, builds the selected preset, programs and verifies the selected firmware, then runs the board and exits OpenOCD. F5 still debugs.</small>
                     <small class="hint hidden" id="no-build-presets" data-i18n="noBuildPresets">No build presets found. Add a build preset in CMake before enabling this option.</small>
                 </div>
+                <button class="btn-secondary" id="completion-button" data-i18n="configureCompletion">Configure code completion (no ELF required)</button>
             </section>
             <!-- Card: ARM Toolchain -->
             <section class="card span-12" id="arm-toolchain-section">

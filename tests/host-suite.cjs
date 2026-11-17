@@ -8,6 +8,16 @@ exports.run = async function() {
  assert.ok(folder);
  await vscode.extensions.getExtension('ms-vscode.cmake-tools').activate();
  await vscode.extensions.getExtension('sarzn.stm32-flash-configurator').activate();
+ const completion = await vscode.commands.executeCommand('stm32-flash-configurator.configureCompletion', folder, 'Release');
+ assert.ok(completion, 'The completion command must return a result');
+ assert.match(completion.message, /已生成 .clangd/, 'Without clangd installed, tell the user what remains');
+ assert.ok(fs.existsSync(path.join(root, 'build/Release/compile_commands.json')));
+ assert.match(fs.readFileSync(path.join(root, '.clangd'), 'utf8'), /CompilationDatabase: "build\/Release"/);
+ assert.equal(fs.existsSync(path.join(root, 'build/Release/LED.elf')), false);
+ console.log('PASS: new project configures real CMake Tools and generates completion without an ELF');
+ await vscode.commands.executeCommand('stm32-flash-configurator.configureCompletion', folder, 'Debug');
+ assert.match(fs.readFileSync(path.join(root, '.clangd'), 'utf8'), /CompilationDatabase: "build\/Debug"/);
+ console.log('PASS: existing compilation database switches the managed clangd preset');
  await vscode.commands.executeCommand('cmake.setConfigurePreset', 'Debug', folder);
  const started = [];
  const listener = vscode.debug.onDidStartDebugSession(s => started.push(s));

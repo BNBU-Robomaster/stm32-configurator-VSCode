@@ -234,7 +234,7 @@ export function listBuildPresets(root: string): string[] {
     return [...presetDefinitions(root).builds].filter(([, preset]) => !preset.hidden).map(([name]) => name);
 }
 
-export function assertFirmwareInBuildDirectory(root: string, buildName: string, executable: string): void {
+export function resolveBuildPreset(root: string, buildName: string): { configurePreset: string; binaryDir: string } {
     const { builds, configurations } = presetDefinitions(root);
     function inherit(map: Map<string, any>, name: string, chain: string[] = []): any {
         if (chain.includes(name)) { throw new Error('CMake 预设继承存在循环。'); }
@@ -254,11 +254,23 @@ export function assertFirmwareInBuildDirectory(root: string, buildName: string, 
         .replace(/\$\{presetName\}/g, build.configurePreset);
     if (typeof configuration.binaryDir !== 'string') { throw new Error('构建预设需要明确的 binaryDir，以确认编译会更新所选 ELF。'); }
     const directory = expand(configuration.binaryDir);
-    const firmware = expand(executable);
-    if (/\$\{|\$(?:p?env)\{/.test(directory + firmware)) {
+    if (/\$\{|\$(?:p?env)\{/.test(directory)) {
         throw new Error('无法确认含动态变量的构建输出目录，请使用 sourceDir/presetName 指定输出目录。');
     }
-    const relative = path.relative(path.resolve(root, directory), path.resolve(root, firmware));
+    return { configurePreset: build.configurePreset, binaryDir: path.resolve(root, directory) };
+}
+
+export function assertFirmwareInBuildDirectory(root: string, buildName: string, executable: string): void {
+    const { binaryDir: directory, configurePreset } = resolveBuildPreset(root, buildName);
+    const firmware = executable
+        .replace(/\$\{sourceDir\}|\$\{workspaceFolder\}/g, root)
+        .replace(/\$\{sourceParentDir\}/g, path.dirname(root))
+        .replace(/\$\{sourceDirName\}/g, path.basename(root))
+        .replace(/\$\{presetName\}/g, configurePreset);
+    if (/\$\{|\$(?:p?env)\{/.test(firmware)) {
+        throw new Error('无法确认含动态变量的固件路径。');
+    }
+    const relative = path.relative(directory, path.resolve(root, firmware));
     if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
         throw new Error(`所选固件不在 ${buildName} 的构建输出目录中：${directory}。请让构建预设与 ELF 匹配。`);
     }

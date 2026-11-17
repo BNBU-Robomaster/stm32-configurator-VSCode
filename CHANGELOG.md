@@ -6,6 +6,14 @@ STM32 Debug Configurator 扩展的所有重要变更都将记录在此文件中�
 此项目遵循 [语义化版本控制](https://semver.org/lang/zh-CN/)。
 
 
+## [1.2.0] - 2026-11-18
+
+- 生成调试/烧录配置时默认配置 clangd，按所选 CMake 构建预设关联编译信息目录。
+- 新增“配置代码补全”命令及界面按钮；没有 ELF 的新工程也能使用，缺少编译信息时自动调用 CMake Tools 配置工程。
+- 自动重启已运行的 STM32Cube clangd / clangd；缺少当前 Profile 中的依赖时明确提示。
+- 保留用户 `.clangd` 设置、注释及自定义编译目录，只更新本插件管理的路径；补全选项随工作区保存。
+- 新增路径解析、YAML 保留、失败处理、GUI 与真实 VS Code / CMake Tools 集成验证。
+
 ## [1.1.1] - 2026-11-18
 
 - 修复生成的 CMake 任务引用未注册的 `$gcc` problem matcher 导致配置警告；编译诊断由 CMake Tools 处理。

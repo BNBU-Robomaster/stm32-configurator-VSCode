@@ -29,7 +29,8 @@ async function main() {
  fs.mkdirSync(path.join(workspace, '.vscode'));
  fs.writeFileSync(path.join(workspace, '.vscode/settings.json'), JSON.stringify({ 'cmake.useCMakePresets': 'always', 'cmake.configureOnOpen': false, 'cmake.cmakePath': cmake, 'cmake.showOptionsMovedNotification': false, 'cmake.loggingLevel': 'warning', 'telemetry.telemetryLevel': 'off', 'workbench.startupEditor': 'none', 'security.workspace.trust.enabled': false }));
  fs.writeFileSync(path.join(workspace, 'CMakePresets.json'), JSON.stringify({ version: 3, configurePresets: ['Debug', 'Release'].map(name => ({ name, generator: 'Unix Makefiles', binaryDir: '${sourceDir}/build/${presetName}' })), buildPresets: ['Debug', 'Release'].map(name => ({ name, configurePreset: name })) }));
- fs.writeFileSync(path.join(workspace, 'CMakeLists.txt'), `cmake_minimum_required(VERSION 3.20)\nproject(FlashTest NONE)\nadd_custom_target(firmware ALL COMMAND "\${CMAKE_COMMAND}" "-DINPUT=\${CMAKE_SOURCE_DIR}/source.txt" "-DOUTPUT=\${CMAKE_BINARY_DIR}/LED.elf" "-P" "\${CMAKE_SOURCE_DIR}/build.cmake" VERBATIM)\n`);
+ fs.writeFileSync(path.join(workspace, 'CMakeLists.txt'), `cmake_minimum_required(VERSION 3.20)\nproject(FlashTest C)\nset(CMAKE_EXPORT_COMPILE_COMMANDS ON)\nadd_library(completion_fixture OBJECT completion.c)\nadd_custom_target(firmware ALL COMMAND "\${CMAKE_COMMAND}" "-DINPUT=\${CMAKE_SOURCE_DIR}/source.txt" "-DOUTPUT=\${CMAKE_BINARY_DIR}/LED.elf" "-P" "\${CMAKE_SOURCE_DIR}/build.cmake" VERBATIM)\n`);
+ fs.writeFileSync(path.join(workspace, 'completion.c'), 'int completion_fixture(void) { return 42; }\n');
  fs.writeFileSync(path.join(workspace, 'build.cmake'), `file(READ "\${INPUT}" content)\nif(content MATCHES "FAIL_BUILD")\n message(FATAL_ERROR "deliberate build failure")\nendif()\nfile(WRITE "\${OUTPUT}" "\${content}")\n`);
  fs.writeFileSync(path.join(workspace, 'source.txt'), 'initial firmware');
  fs.writeFileSync(path.join(workspace, 'daplink.cfg'), '# test fixture only');
@@ -41,6 +42,8 @@ async function main() {
   const executable = '${workspaceFolder}/build/' + preset + '/LED.elf';
   writeConfiguration(workspace, { name: preset, type: 'cortex-debug', request: 'launch', servertype: 'openocd', cwd: '${workspaceFolder}', executable, device: 'STM32F103C8', gdbPath: process.env.STM32_TEST_GDB || 'arm-none-eabi-gdb', serverpath: openocd, configFiles: ['${workspaceFolder}/daplink.cfg'] }, { name: preset, executable, buildPreset: preset, openocdPath: openocd, configFiles: ['${workspaceFolder}/daplink.cfg'], launchCommands: [] });
  }
+ // Exercise the first-configure path through real CMake Tools, before an ELF exists.
+ fs.rmSync(path.join(workspace, 'build/Release/compile_commands.json'));
  console.log('Host test fixtures:', root);
  try {
   await runTests({

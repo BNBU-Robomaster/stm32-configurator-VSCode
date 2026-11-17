@@ -207,6 +207,7 @@
         const state = {
             configurationName: document.getElementById('configurationName').value,
             flashEnabled: document.getElementById('flashEnabled').checked,
+            completionEnabled: document.getElementById('completionEnabled').checked,
             buildPreset: document.getElementById('buildPreset').value,
             useProjectCfg: document.getElementById('useProjectCfg').checked,
             projectCfg: document.getElementById('projectCfg').value,
@@ -302,7 +303,7 @@
                     input.value = savedState[key];
                 }
             }
-            for (const key of ['flashEnabled', 'useProjectCfg']) {
+            for (const key of ['flashEnabled', 'useProjectCfg', 'completionEnabled']) {
                 if (typeof savedState[key] === 'boolean') document.getElementById(key).checked = savedState[key];
             }
             updateFlashVisibility();
@@ -740,22 +741,28 @@
     function updateFlashVisibility() {
         const openocd = elements.servertypeSelect.value === 'openocd';
         const custom = document.getElementById('useProjectCfg').checked;
-        document.getElementById('flash-section').classList.toggle('hidden', !openocd);
+        document.getElementById('flash-toggle-group').classList.toggle('hidden', !openocd);
         document.getElementById('project-cfg-group').classList.toggle('hidden', !custom);
         document.getElementById('builtin-cfg-group').classList.toggle('hidden', custom);
         document.getElementById('adapterSpeed').disabled = custom;
         document.getElementById('transportInterface').disabled = custom;
-        document.getElementById('build-preset-group').classList.toggle('hidden', !document.getElementById('flashEnabled').checked);
+        // The preset is also used by the completion-only button, before an ELF exists.
+        document.getElementById('build-preset-group').classList.remove('hidden');
     }
 
     // Event listeners
     function setupEventListeners() {
-        for (const id of ['configurationName', 'flashEnabled', 'buildPreset', 'useProjectCfg', 'projectCfg']) {
+        for (const id of ['configurationName', 'flashEnabled', 'completionEnabled', 'buildPreset', 'useProjectCfg', 'projectCfg']) {
             document.getElementById(id).addEventListener('change', () => { updateFlashVisibility(); saveStateDebounced(); });
         }
         elements.servertypeSelect.addEventListener('change', updateFlashVisibility);
         document.getElementById('browse-project-cfg').addEventListener('click', () => vscode.postMessage({ command: 'browseProjectCfg' }));
         document.getElementById('flash-button').addEventListener('click', () => vscode.postMessage({ command: 'flashNow' }));
+        document.getElementById('completion-button').addEventListener('click', () => {
+            const buildPreset = document.getElementById('buildPreset').value;
+            if (!buildPreset) { showMessage(strings.noBuildPresets || 'Select a CMake build preset first.', 'error'); return; }
+            vscode.postMessage({ command: 'configureCompletion', buildPreset });
+        });
         // Language switching
         elements.languageSelect.addEventListener('change', (e) => {
             const newLanguage = e.target.value;
@@ -853,7 +860,7 @@
             
             const data = getCurrentConfigurationData();
             
-            if (data.servertype === 'openocd' && data.flashEnabled && !data.buildPreset) {
+            if (((data.servertype === 'openocd' && data.flashEnabled) || data.completionEnabled) && !data.buildPreset) {
                 showMessage(strings.noBuildPresets || 'Select a CMake build preset first.', 'error'); return;
             }
             if (data.useProjectCfg && !data.projectCfg.trim()) {
@@ -1021,7 +1028,11 @@
                 saveStateDebounced();
                 break;
             case 'generationComplete':
-                showMessage(message.flashEnabled ? `${message.name}: F5 → Debug / Ctrl+F5 → Build & Flash` : message.name, 'success');
+                showMessage((message.flashEnabled ? `${message.name}: F5 → Debug / Ctrl+F5 → Build & Flash` : message.name) +
+                    (message.completion ? `\n${message.completion.message}` : ''), message.completion?.warning ? 'warning' : 'success');
+                break;
+            case 'completionComplete':
+                showMessage(message.message, message.warning ? 'warning' : 'success');
                 break;
             case 'updatePath':
                 const path = message.path;
@@ -1418,6 +1429,7 @@
         return {
             configurationName: document.getElementById('configurationName').value,
             flashEnabled: document.getElementById('flashEnabled').checked,
+            completionEnabled: document.getElementById('completionEnabled').checked,
             buildPreset: document.getElementById('buildPreset').value,
             useProjectCfg: document.getElementById('useProjectCfg').checked,
             projectCfg: document.getElementById('projectCfg').value,

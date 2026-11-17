@@ -12,6 +12,9 @@ test('GUI generates a complete build-and-flash payload using a browsed project c
  const send = data => window.dispatchEvent(new window.MessageEvent('message', { data }));
  send({ command: 'flashOptions', presets: ['Debug', 'Release'], folder: 'test' });
  assert.equal(document.getElementById('buildPreset').value, 'Debug');
+ assert.equal(document.getElementById('completionEnabled').checked, true);
+ document.getElementById('completion-button').click();
+ assert.deepEqual(JSON.parse(JSON.stringify(messages.at(-1))), { command: 'configureCompletion', buildPreset: 'Debug' });
  document.getElementById('useProjectCfg').checked = true;
  document.getElementById('useProjectCfg').dispatchEvent(new window.Event('change'));
  assert.equal(document.getElementById('adapterSpeed').disabled, true);
@@ -23,9 +26,12 @@ test('GUI generates a complete build-and-flash payload using a browsed project c
  document.getElementById('generate-button').click();
  const generated = messages.findLast(m => m.command === 'generate');
  assert.ok(generated); assert.equal(generated.data.flashEnabled, true); assert.equal(generated.data.buildPreset, 'Debug');
+ assert.equal(generated.data.completionEnabled, true);
  assert.equal(generated.data.projectCfg, '${workspaceFolder}/daplink.cfg'); assert.equal(generated.data.configurationName, 'LED');
- send({ command: 'restoreState', state: { flashEnabled: false, useProjectCfg: true, projectCfg: '${workspaceFolder}/other.cfg', buildPreset: 'Release' } });
+ send({ command: 'restoreState', state: { flashEnabled: false, completionEnabled: false, useProjectCfg: true, projectCfg: '${workspaceFolder}/other.cfg', buildPreset: 'Release' } });
  assert.equal(document.getElementById('flashEnabled').checked, false);
+ assert.equal(document.getElementById('completionEnabled').checked, false);
+ assert.equal(document.getElementById('build-preset-group').classList.contains('hidden'), false);
  assert.equal(document.getElementById('projectCfg').value, '${workspaceFolder}/other.cfg');
  assert.equal(document.getElementById('buildPreset').value, 'Release');
  window.close();

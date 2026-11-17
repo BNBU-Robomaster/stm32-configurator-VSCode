@@ -16,6 +16,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { FlashController } from './flash/controller';
+import { COMPLETION_COMMAND, CompletionController, CompletionResult } from './completion/controller';
 import { listBuildPresets, writeConfiguration } from './flash/configuration';
 import { STM32TreeDataProvider, DebugConfiguration } from './providers';
 import { findOpenOCDPath, getOpenOCDConfigFiles } from './utils/openocd';
@@ -60,6 +61,7 @@ let currentWebviewState: any = null;
 
 /** 状态管理器实例 */
 let stateManager: StateManager;
+let completionController: CompletionController;
 
 /**
  * 激活扩展
@@ -75,6 +77,7 @@ let stateManager: StateManager;
  */
 export function activate(context: vscode.ExtensionContext) {
     new FlashController(context);
+    completionController = new CompletionController(context);
     // Initialize state manager
     stateManager = new StateManager(context);
     
@@ -359,6 +362,11 @@ export function activate(context: vscode.ExtensionContext) {
             currentPanel.webview.onDidReceiveMessage(
                 async message => {
                     switch (message.command) {
+                        case 'configureCompletion': {
+                            const result = await vscode.commands.executeCommand<CompletionResult>(COMPLETION_COMMAND, panelWorkspace, message.buildPreset);
+                            if (result) { currentPanel?.webview.postMessage({ command: 'completionComplete', ...result }); }
+                            return;
+                        }
                         case 'flashNow':
                             await vscode.commands.executeCommand('stm32-flash-configurator.flash');
                             return;
@@ -890,14 +898,20 @@ async function generateConfiguration(data: any) {
         if (enabled && !listBuildPresets(folder.uri.fsPath).includes(data.buildPreset)) {
             throw new Error('请选择当前项目有效的 CMake 构建预设。');
         }
+        const completion = data.completionEnabled
+            ? await completionController.configure(folder, data.buildPreset) : undefined;
         newConfig.name = writeConfiguration(folder.uri.fsPath, newConfig, enabled ? {
             name: data.configurationName, executable: data.executablePath,
             buildPreset: data.buildPreset, openocdPath: newConfig.serverpath,
             configFiles: newConfig.configFiles, launchCommands: newConfig.openOCDLaunchCommands ?? []
         } : undefined);
-        currentPanel?.webview.postMessage({ command: 'generationComplete', name: newConfig.name, flashEnabled: enabled });
+        currentPanel?.webview.postMessage({ command: 'generationComplete', name: newConfig.name, flashEnabled: enabled, completion });
         // Generate success message with livewatch status
         let successMessage = enabled ? `配置已生成：${newConfig.name}。F5 调试；Ctrl+F5 自动编译、烧录并退出。` : localizationManager.getString('configGenerated');
+        if (completion) {
+            if (completion.warning) { completionController.notify(completion); }
+            else { successMessage += ` ${completion.message}`; }
+        }
         if (data.liveWatch && data.liveWatch.enabled) {
             const variableCount = data.liveWatch.variables ? data.liveWatch.variables.length : 0;
             currentLiveWatchVariables = data.liveWatch.variables || [];
@@ -910,7 +924,7 @@ async function generateConfiguration(data: any) {
         treeDataProvider.addRecentConfig(newConfig.name, data.deviceName);
         treeDataProvider.refresh();
     } catch (error: any) { 
-        vscode.window.showErrorMessage(`Failed to update launch.json: ${error.message}`);
+        vscode.window.showErrorMessage(`配置未完成：${error.message}`);
         // Notify webview of error
         currentPanel?.webview.postMessage({ command: 'showError', error: error.message });
     }

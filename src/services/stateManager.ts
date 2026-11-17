@@ -21,6 +21,7 @@ import * as vscode from 'vscode';
 export interface ExtensionConfigurationState {
     configurationName?: string;
     flashEnabled?: boolean;
+    completionEnabled?: boolean;
     buildPreset?: string;
     useProjectCfg?: boolean;
     projectCfg?: string;
@@ -259,7 +260,7 @@ export class StateManager {
             'deviceName', 'executablePath', 'servertype', 'openocdPath', 
             'armToolchainPath', 'interfaceFile', 'targetFile', 'svdFilePath', 
             'adapterSpeed', 'elfSource', 'language', 'configurationName', 'buildPreset',
-            'useProjectCfg', 'projectCfg', 'flashEnabled'
+            'useProjectCfg', 'projectCfg', 'flashEnabled', 'completionEnabled'
         ];
         
         validKeys.forEach(key => {
@@ -299,7 +300,7 @@ export class StateManager {
             }
         });
 
-        for (const field of ['flashEnabled', 'useProjectCfg'] as const) {
+        for (const field of ['flashEnabled', 'useProjectCfg', 'completionEnabled'] as const) {
             if (typeof state[field] === 'boolean') { validatedState[field] = state[field]; }
         }
         

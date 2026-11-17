@@ -31,6 +31,9 @@ export interface LocalizedStrings {
     flashHelp: string;
     noBuildPresets: string;
     flashNow: string;
+    completionEnabled: string;
+    completionHelp: string;
+    configureCompletion: string;
 
     // 主界面文本
     /** 主标题 */
