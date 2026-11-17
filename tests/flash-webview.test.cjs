@@ -1,0 +1,32 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const { JSDOM, VirtualConsole } = require('jsdom');
+
+test('GUI generates a complete build-and-flash payload using a browsed project cfg', () => {
+ const messages = [];
+ const dom = new JSDOM(fs.readFileSync('src/webview/main.html', 'utf8'), { runScripts: 'outside-only', url: 'https://webview.test', virtualConsole: new VirtualConsole() });
+ const { window } = dom; const document = window.document;
+ window.acquireVsCodeApi = () => ({ postMessage: m => messages.push(m) });
+ window.eval(fs.readFileSync('src/webview/main.js', 'utf8'));
+ const send = data => window.dispatchEvent(new window.MessageEvent('message', { data }));
+ send({ command: 'flashOptions', presets: ['Debug', 'Release'], folder: 'test' });
+ assert.equal(document.getElementById('buildPreset').value, 'Debug');
+ document.getElementById('useProjectCfg').checked = true;
+ document.getElementById('useProjectCfg').dispatchEvent(new window.Event('change'));
+ assert.equal(document.getElementById('adapterSpeed').disabled, true);
+ document.getElementById('browse-project-cfg').click();
+ assert.equal(messages.at(-1).command, 'browseProjectCfg');
+ send({ command: 'projectCfgSelected', path: '${workspaceFolder}/daplink.cfg' });
+ document.getElementById('configurationName').value = 'LED';
+ document.getElementById('executablePath').value = '${workspaceFolder}/build/Debug/LED.elf';
+ document.getElementById('generate-button').click();
+ const generated = messages.findLast(m => m.command === 'generate');
+ assert.ok(generated); assert.equal(generated.data.flashEnabled, true); assert.equal(generated.data.buildPreset, 'Debug');
+ assert.equal(generated.data.projectCfg, '${workspaceFolder}/daplink.cfg'); assert.equal(generated.data.configurationName, 'LED');
+ send({ command: 'restoreState', state: { flashEnabled: false, useProjectCfg: true, projectCfg: '${workspaceFolder}/other.cfg', buildPreset: 'Release' } });
+ assert.equal(document.getElementById('flashEnabled').checked, false);
+ assert.equal(document.getElementById('projectCfg').value, '${workspaceFolder}/other.cfg');
+ assert.equal(document.getElementById('buildPreset').value, 'Release');
+ window.close();
+});

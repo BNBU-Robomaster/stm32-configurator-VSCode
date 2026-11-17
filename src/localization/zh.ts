@@ -20,6 +20,15 @@ import { LocalizedStrings } from './index';
  * 包含扩展所有用户界面文本的中文版本
  */
 export const zh: LocalizedStrings = {
+    configurationName: "配置名称（可选，用于区分多个固件）",
+    useProjectCfg: "使用项目中的 OpenOCD 配置文件",
+    projectCfgHelp: "由此 cfg 设置下载器、芯片、传输方式和速度；不会再叠加上面的接口与目标文件。",
+    flashTitle: "自动编译与烧录",
+    flashEnabled: "Ctrl+F5：自动保存、编译、烧录并退出",
+    buildPreset: "CMake 构建预设（应与所选 ELF 的输出目录一致）",
+    flashHelp: "编译成功后烧录并校验所选固件，让单片机运行后退出 OpenOCD。F5 仍用于断点调试。",
+    noBuildPresets: "未找到 CMake 构建预设，请先在 CMake 中配置构建预设。",
+    flashNow: "编译并烧录",
     // Main UI
     title: "STM32 调试配置",
     subtitle: "请填写下方详细信息，为 Cortex-Debug 生成 `launch.json` 配置。",

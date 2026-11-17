@@ -205,6 +205,11 @@
         const liveWatchEnabled = elements.liveWatchEnabledCheckbox?.checked || false;
         
         const state = {
+            configurationName: document.getElementById('configurationName').value,
+            flashEnabled: document.getElementById('flashEnabled').checked,
+            buildPreset: document.getElementById('buildPreset').value,
+            useProjectCfg: document.getElementById('useProjectCfg').checked,
+            projectCfg: document.getElementById('projectCfg').value,
             deviceName: document.getElementById('deviceName')?.value || '',
             executablePath: document.getElementById('executablePath')?.value || '',
             servertype: elements.servertypeSelect?.value || 'openocd',
@@ -288,6 +293,19 @@
         autoSaveEnabled = false; // Temporarily disable auto-save during restore
         
         try {
+            for (const key of ['configurationName', 'projectCfg', 'buildPreset']) {
+                if (savedState[key] !== undefined) {
+                    const input = document.getElementById(key);
+                    if (key === 'buildPreset' && savedState[key] && ![...input.options].some(o => o.value === savedState[key])) {
+                        input.add(new Option(savedState[key], savedState[key]));
+                    }
+                    input.value = savedState[key];
+                }
+            }
+            for (const key of ['flashEnabled', 'useProjectCfg']) {
+                if (typeof savedState[key] === 'boolean') document.getElementById(key).checked = savedState[key];
+            }
+            updateFlashVisibility();
             // Restore basic form fields
             if (savedState.deviceName && document.getElementById('deviceName')) {
                 document.getElementById('deviceName').value = savedState.deviceName;
@@ -719,8 +737,25 @@
         }
     }
 
+    function updateFlashVisibility() {
+        const openocd = elements.servertypeSelect.value === 'openocd';
+        const custom = document.getElementById('useProjectCfg').checked;
+        document.getElementById('flash-section').classList.toggle('hidden', !openocd);
+        document.getElementById('project-cfg-group').classList.toggle('hidden', !custom);
+        document.getElementById('builtin-cfg-group').classList.toggle('hidden', custom);
+        document.getElementById('adapterSpeed').disabled = custom;
+        document.getElementById('transportInterface').disabled = custom;
+        document.getElementById('build-preset-group').classList.toggle('hidden', !document.getElementById('flashEnabled').checked);
+    }
+
     // Event listeners
     function setupEventListeners() {
+        for (const id of ['configurationName', 'flashEnabled', 'buildPreset', 'useProjectCfg', 'projectCfg']) {
+            document.getElementById(id).addEventListener('change', () => { updateFlashVisibility(); saveStateDebounced(); });
+        }
+        elements.servertypeSelect.addEventListener('change', updateFlashVisibility);
+        document.getElementById('browse-project-cfg').addEventListener('click', () => vscode.postMessage({ command: 'browseProjectCfg' }));
+        document.getElementById('flash-button').addEventListener('click', () => vscode.postMessage({ command: 'flashNow' }));
         // Language switching
         elements.languageSelect.addEventListener('change', (e) => {
             const newLanguage = e.target.value;
@@ -818,6 +853,12 @@
             
             const data = getCurrentConfigurationData();
             
+            if (data.servertype === 'openocd' && data.flashEnabled && !data.buildPreset) {
+                showMessage(strings.noBuildPresets || 'Select a CMake build preset first.', 'error'); return;
+            }
+            if (data.useProjectCfg && !data.projectCfg.trim()) {
+                showMessage(strings.useProjectCfg || 'Select an OpenOCD cfg first.', 'error'); return;
+            }
             // 额外验证生成数据
             const validation = validateGenerationData(data);
             if (!validation.isValid) {
@@ -965,6 +1006,23 @@
     window.addEventListener('message', event => {
         const message = event.data;
         switch (message.command) {
+            case 'flashOptions': {
+                const select = document.getElementById('buildPreset');
+                const previous = select.value;
+                select.replaceChildren();
+                for (const name of message.presets) select.add(new Option(name, name));
+                select.value = message.presets.includes(previous) ? previous : (message.presets.includes('Debug') ? 'Debug' : message.presets[0] || '');
+                document.getElementById('no-build-presets').classList.toggle('hidden', message.presets.length > 0);
+                document.getElementById('flash-workspace').textContent = message.folder;
+                break;
+            }
+            case 'projectCfgSelected':
+                document.getElementById('projectCfg').value = message.path;
+                saveStateDebounced();
+                break;
+            case 'generationComplete':
+                showMessage(message.flashEnabled ? `${message.name}: F5 → Debug / Ctrl+F5 → Build & Flash` : message.name, 'success');
+                break;
             case 'updatePath':
                 const path = message.path;
                 if (path) {
@@ -1186,19 +1244,7 @@
                 break;
 
             case 'restoreState':
-                // 从后端恢复状态
-                if (message.state && stateManager) {
-                    stateManager.importConfiguration(message.state);
-                    restoreFormState();
-                    showMessage('Configuration restored from backend', 'success');
-                }
-                break;
-
-            case 'restoreState':
-                if (message.state) {
-                    console.log('Received state restoration message');
-                    restoreState(message.state);
-                }
+                if (message.state) restoreState(message.state);
                 break;
         }
     });
@@ -1214,6 +1260,8 @@
 
         // Request initial language and strings from extension
         vscode.postMessage({ command: 'getLanguage' });
+        vscode.postMessage({ command: 'getFlashOptions' });
+        updateFlashVisibility();
     }
 
     /**
@@ -1368,6 +1416,11 @@
         }
 
         return {
+            configurationName: document.getElementById('configurationName').value,
+            flashEnabled: document.getElementById('flashEnabled').checked,
+            buildPreset: document.getElementById('buildPreset').value,
+            useProjectCfg: document.getElementById('useProjectCfg').checked,
+            projectCfg: document.getElementById('projectCfg').value,
             executablePath: executablePath,
             deviceName: document.getElementById('deviceName').value,
             servertype: elements.servertypeSelect.value,

@@ -226,19 +226,19 @@ export async function batchConfigOperations(): Promise<void> {
 export function registerSettingsCommands(context: vscode.ExtensionContext): void {
     // 保存检测结果命令
     const saveCommand = vscode.commands.registerCommand(
-        'stm32-configurator.saveDetectionResults',
+        'stm32-flash-configurator.saveDetectionResults',
         saveDetectionResultsToGlobalSettings
     );
 
     // 显示当前配置命令
     const showCommand = vscode.commands.registerCommand(
-        'stm32-configurator.showGlobalSettings',
+        'stm32-flash-configurator.showGlobalSettings',
         displayCurrentGlobalSettings
     );
 
     // 批量操作命令
     const batchCommand = vscode.commands.registerCommand(
-        'stm32-configurator.batchConfigOperations',
+        'stm32-flash-configurator.batchConfigOperations',
         batchConfigOperations
     );
 

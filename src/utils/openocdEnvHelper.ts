@@ -142,7 +142,7 @@ export async function showOpenOCDConfigurationWizard(): Promise<void> {
             });
             
             if (fileUri && fileUri[0]) {
-                const config = vscode.workspace.getConfiguration('stm32-configurator');
+                const config = vscode.workspace.getConfiguration('stm32-flash-configurator');
                 await config.update('openocdPath', fileUri[0].fsPath, vscode.ConfigurationTarget.Global);
                 vscode.window.showInformationMessage('OpenOCD路径已配置！');
             }
@@ -157,7 +157,7 @@ export async function showOpenOCDConfigurationWizard(): Promise<void> {
         case 'settings':
             await vscode.commands.executeCommand(
                 'workbench.action.openSettings',
-                'stm32-configurator.openocdPath'
+                'stm32-flash-configurator.openocdPath'
             );
             break;
     }

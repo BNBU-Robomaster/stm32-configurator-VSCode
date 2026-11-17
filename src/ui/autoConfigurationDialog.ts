@@ -430,7 +430,7 @@ export class AutoConfigurationDialog {
                 return { success: false, error: message };
             
             case 'Manual Setup':
-                await vscode.commands.executeCommand('workbench.action.openSettings', 'stm32-configurator');
+                await vscode.commands.executeCommand('workbench.action.openSettings', 'stm32-flash-configurator');
                 return { success: false };
             
             default:

@@ -67,7 +67,7 @@ function checkOpenOCDPath(execPath: string): boolean {
  * @returns 如果在设置中找到有效路径则返回该路径，否则返回null
  */
 export async function checkSettingsPath(): Promise<string | null> {
-    const config = vscode.workspace.getConfiguration('stm32-configurator');
+    const config = vscode.workspace.getConfiguration('stm32-flash-configurator');
     const settingsPath = config.get<string>('openocdPath');
     
     if (settingsPath && settingsPath.trim() && checkOpenOCDPath(settingsPath)) {

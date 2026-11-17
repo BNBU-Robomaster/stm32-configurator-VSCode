@@ -6,6 +6,15 @@ STM32 Debug Configurator 扩展的所有重要变更都将记录在此文件中�
 此项目遵循 [语义化版本控制](https://semver.org/lang/zh-CN/)。
 
 
+## [1.1.0] - 2026-11-18 (STM32 Flash Configurator fork)
+
+- 新增原生 Ctrl+F5 自动保存、CMake 编译、OpenOCD 烧录/校验/复位运行/退出流程，无 GDB 会话。
+- F5 保持 Cortex-Debug 调试，并自动执行匹配预设的编译任务。
+- 界面新增配置名称、CMake 构建预设、自动烧录选项、自定义项目 cfg 浏览及“编译并烧录”按钮。
+- 支持多个 ELF / 多个配置；同名的本扩展配置可更新，无关 JSONC 内容保留。
+- 编译失败、取消和校验失败不会报告成功；运行前检查预设输出目录与所选固件一致。
+- 独立扩展 ID，保留上游 MIT 许可证与历史；新增自动测试和模拟 OpenOCD 的 VS Code 集成测试。
+
 ## [1.0.3] - 2026-04-28
 
 ### 修复 (Fixed)

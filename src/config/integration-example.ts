@@ -66,7 +66,7 @@ export async function saveDetectedToolchainPaths(
 export function registerToolchainSettingsCommands(context: vscode.ExtensionContext): void {
     // 注册保存工具链设置命令
     const saveSettingsCommand = vscode.commands.registerCommand(
-        'stm32-configurator-by-zuolan.saveToolchainSettings',
+        'stm32-flash-configurator.saveToolchainSettings',
         async () => {
             // 这里可以调用工具链检测服务，然后保存结果
             // 示例中使用固定路径

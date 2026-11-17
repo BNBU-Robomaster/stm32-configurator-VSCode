@@ -19,8 +19,8 @@ vsc-extension-quickstart.md
 .spec-workflow/**
 docs/**
 scripts/**
+tests/**
 *.vsix
-node_modules/**
 coverage/**
 .nyc_output/**
 

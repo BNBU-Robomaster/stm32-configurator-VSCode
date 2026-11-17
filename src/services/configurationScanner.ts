@@ -318,7 +318,7 @@ export class ConfigurationScanner {
                         title: 'Generate Debug Configuration',
                         description: 'Create optimized STM32 debug configuration',
                         automated: true,
-                        command: 'stm32-configurator.autoConfigureAll'
+                        command: 'stm32-flash-configurator.autoConfigureAll'
                     });
                     automatedSteps++;
                     break;
@@ -378,7 +378,7 @@ export class ConfigurationScanner {
             }
 
             // 检查ARM工具链路径
-            const armConfig = vscode.workspace.getConfiguration('stm32-configurator');
+            const armConfig = vscode.workspace.getConfiguration('stm32-flash-configurator');
             const armPath = armConfig.get<string>('armToolchainPath');
             if (armPath) {
                 result.workspace.armToolchainPath = armPath;

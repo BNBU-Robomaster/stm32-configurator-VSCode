@@ -15,6 +15,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { readJsonc } from '../flash/configuration';
 import { DebugConfiguration } from './types';
 import { STM32TreeItem } from './stm32TreeItem';
 import { RecentConfigManager } from './recentConfigManager';
@@ -151,7 +152,7 @@ export class STM32TreeDataProvider implements vscode.TreeDataProvider<STM32TreeI
                 config
             );
             item.command = {
-                command: 'stm32-configurator-by-zuolan.openConfig',
+                command: 'stm32-flash-configurator.openConfig',
                 title: 'Open Configuration',
                 arguments: [config]
             };
@@ -196,7 +197,7 @@ export class STM32TreeDataProvider implements vscode.TreeDataProvider<STM32TreeI
 
         // Add command to open configuration
         actions[0].command = {
-            command: 'stm32-configurator-by-zuolan.start',
+            command: 'stm32-flash-configurator.start',
             title: 'Generate New Configuration'
         };
 
@@ -225,7 +226,7 @@ export class STM32TreeDataProvider implements vscode.TreeDataProvider<STM32TreeI
             }
 
             const content = fs.readFileSync(launchJsonPath, 'utf8');
-            const launchConfig = JSON.parse(content);
+            const launchConfig = readJsonc(content, 'launch.json');
             
             if (!launchConfig.configurations || !Array.isArray(launchConfig.configurations)) {
                 return [];

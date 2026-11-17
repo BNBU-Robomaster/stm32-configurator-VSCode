@@ -20,6 +20,15 @@ import { LocalizedStrings } from './index';
  * 包含扩展所有用户界面文本的英文版本
  */
 export const en: LocalizedStrings = {
+    configurationName: "Configuration name (optional)",
+    useProjectCfg: "Use a project OpenOCD configuration",
+    projectCfgHelp: "The cfg controls probe, target, transport and speed; built-in interface/target settings are not added.",
+    flashTitle: "Build, flash and run",
+    flashEnabled: "Ctrl+F5: save, build, flash and exit",
+    buildPreset: "CMake build preset (must produce the selected ELF)",
+    flashHelp: "After a successful build, program and verify the selected firmware, run the board and exit OpenOCD. F5 still starts debugging.",
+    noBuildPresets: "No CMake build presets found. Configure a CMake build preset first.",
+    flashNow: "Build and Flash",
     // Main UI
     title: "STM32 Debug Configuration",
     subtitle: "Fill in the details below to generate a `launch.json` configuration for Cortex-Debug.",

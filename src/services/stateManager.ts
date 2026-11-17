@@ -19,6 +19,11 @@ import * as vscode from 'vscode';
  * 定义需要持久化的配置项
  */
 export interface ExtensionConfigurationState {
+    configurationName?: string;
+    flashEnabled?: boolean;
+    buildPreset?: string;
+    useProjectCfg?: boolean;
+    projectCfg?: string;
     /** 设备名称 */
     deviceName?: string;
     /** 可执行文件路径 */
@@ -71,8 +76,12 @@ export class StateManager {
     /** 当前状态缓存 */
     private currentState: ExtensionConfigurationState = {};
 
-    constructor(context: vscode.ExtensionContext) {
+    constructor(context: vscode.ExtensionContext, private readonly folderKey?: string) {
         this.context = context;
+    }
+
+    private get stateKey(): string {
+        return this.folderKey ? `${StateManager.STATE_KEY}:${this.folderKey}` : StateManager.STATE_KEY;
     }
 
     /**
@@ -96,7 +105,7 @@ export class StateManager {
             
             // 保存到工作区状态
             await this.context.workspaceState.update(
-                StateManager.STATE_KEY, 
+                this.stateKey,
                 stateWithMetadata
             );
             
@@ -119,7 +128,7 @@ export class StateManager {
      */
     async loadState(): Promise<ExtensionConfigurationState> {
         try {
-            const savedData = this.context.workspaceState.get<any>(StateManager.STATE_KEY);
+            const savedData = this.context.workspaceState.get<any>(this.stateKey);
             
             if (!savedData) {
                 console.log('No saved configuration state found, using defaults');
@@ -176,7 +185,7 @@ export class StateManager {
      */
     async clearState(): Promise<void> {
         try {
-            await this.context.workspaceState.update(StateManager.STATE_KEY, undefined);
+            await this.context.workspaceState.update(this.stateKey, undefined);
             this.currentState = {};
             console.log('Configuration state cleared successfully');
         } catch (error) {
@@ -249,7 +258,8 @@ export class StateManager {
         const validKeys: (keyof ExtensionConfigurationState)[] = [
             'deviceName', 'executablePath', 'servertype', 'openocdPath', 
             'armToolchainPath', 'interfaceFile', 'targetFile', 'svdFilePath', 
-            'adapterSpeed', 'elfSource', 'language'
+            'adapterSpeed', 'elfSource', 'language', 'configurationName', 'buildPreset',
+            'useProjectCfg', 'projectCfg', 'flashEnabled'
         ];
         
         validKeys.forEach(key => {
@@ -279,7 +289,8 @@ export class StateManager {
         // 验证字符串字段
         const stringFields: (keyof ExtensionConfigurationState)[] = [
             'deviceName', 'executablePath', 'openocdPath', 'armToolchainPath',
-            'interfaceFile', 'targetFile', 'svdFilePath', 'adapterSpeed', 'language'
+            'interfaceFile', 'targetFile', 'svdFilePath', 'adapterSpeed', 'language',
+            'configurationName', 'buildPreset', 'projectCfg'
         ];
         
         stringFields.forEach(field => {
@@ -287,6 +298,10 @@ export class StateManager {
                 (validatedState as any)[field] = state[field];
             }
         });
+
+        for (const field of ['flashEnabled', 'useProjectCfg'] as const) {
+            if (typeof state[field] === 'boolean') { validatedState[field] = state[field]; }
+        }
         
         // 验证枚举字段
         if (state.servertype === 'openocd' || state.servertype === 'pyocd') {
@@ -342,7 +357,7 @@ export class StateManager {
         currentStateKeys: string[];
         stateSize: number;
     } {
-        const savedData = this.context.workspaceState.get<any>(StateManager.STATE_KEY);
+        const savedData = this.context.workspaceState.get<any>(this.stateKey);
         
         return {
             hasStoredState: !!savedData,

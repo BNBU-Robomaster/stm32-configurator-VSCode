@@ -22,6 +22,16 @@
  * @since 0.1.0
  */
 export interface LocalizedStrings {
+    configurationName: string;
+    useProjectCfg: string;
+    projectCfgHelp: string;
+    flashTitle: string;
+    flashEnabled: string;
+    buildPreset: string;
+    flashHelp: string;
+    noBuildPresets: string;
+    flashNow: string;
+
     // 主界面文本
     /** 主标题 */
     title: string;

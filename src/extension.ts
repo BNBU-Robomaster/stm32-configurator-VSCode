@@ -15,6 +15,8 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { FlashController } from './flash/controller';
+import { listBuildPresets, writeConfiguration } from './flash/configuration';
 import { STM32TreeDataProvider, DebugConfiguration } from './providers';
 import { findOpenOCDPath, getOpenOCDConfigFiles } from './utils/openocd';
 import { checkOpenOCDEnvironment, showOpenOCDConfigurationWizard, showEnvironmentSetupHelp, validateOpenOCDConfiguration } from './utils/openocdEnvHelper';
@@ -42,6 +44,7 @@ let armToolchainInfo: ToolchainInfo | null = null;
 
 /** 当前活动的Webview面板 */
 let currentPanel: vscode.WebviewPanel | undefined = undefined;
+let panelWorkspace: vscode.WorkspaceFolder | undefined;
 
 /** STM32树形数据提供器实例 */
 let treeDataProvider: STM32TreeDataProvider;
@@ -71,6 +74,7 @@ let stateManager: StateManager;
  * @since 0.1.0
  */
 export function activate(context: vscode.ExtensionContext) {
+    new FlashController(context);
     // Initialize state manager
     stateManager = new StateManager(context);
     
@@ -79,7 +83,7 @@ export function activate(context: vscode.ExtensionContext) {
     
     // Initialize tree data provider
     treeDataProvider = new STM32TreeDataProvider(context);
-    vscode.window.createTreeView('stm32-configurator-tree', {
+    vscode.window.createTreeView('stm32-flash-configurator-tree', {
         treeDataProvider: treeDataProvider,
         showCollapseAll: true
     });
@@ -121,7 +125,7 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('stm32-configurator-by-zuolan.detectToolchain', async () => {
+        vscode.commands.registerCommand('stm32-flash-configurator.detectToolchain', async () => {
             try {
                 // Show toolchain guide dialog
                 const dialog = new ToolchainGuideDialog(context);
@@ -146,7 +150,7 @@ export function activate(context: vscode.ExtensionContext) {
         }),
 
         // Auto-Configuration Commands
-        vscode.commands.registerCommand('stm32-configurator-by-zuolan.autoConfigureAll', async () => {
+        vscode.commands.registerCommand('stm32-flash-configurator.autoConfigureAll', async () => {
             try {
                 const autoConfigDialog = new AutoConfigurationDialog(context);
                 const result = await autoConfigDialog.showAutoConfigurationWizard();
@@ -165,7 +169,7 @@ export function activate(context: vscode.ExtensionContext) {
             }
         }),
 
-        vscode.commands.registerCommand('stm32-configurator-by-zuolan.oneClickSetup', async () => {
+        vscode.commands.registerCommand('stm32-flash-configurator.oneClickSetup', async () => {
             try {
                 const autoConfigDialog = new AutoConfigurationDialog(context);
                 const result = await autoConfigDialog.oneClickQuickSetup();
@@ -182,7 +186,7 @@ export function activate(context: vscode.ExtensionContext) {
             }
         }),
 
-        vscode.commands.registerCommand('stm32-configurator-by-zuolan.intelligentWizard', async () => {
+        vscode.commands.registerCommand('stm32-flash-configurator.intelligentWizard', async () => {
             try {
                 const autoConfigDialog = new AutoConfigurationDialog(context);
                 const result = await autoConfigDialog.showIntelligentConfigurationWizard();
@@ -201,7 +205,7 @@ export function activate(context: vscode.ExtensionContext) {
             }
         }),
 
-        vscode.commands.registerCommand('stm32-configurator-by-zuolan.autoTroubleshoot', async () => {
+        vscode.commands.registerCommand('stm32-flash-configurator.autoTroubleshoot', async () => {
             try {
                 const autoConfigDialog = new AutoConfigurationDialog(context);
                 const result = await autoConfigDialog.autoTroubleshoot();
@@ -225,7 +229,7 @@ export function activate(context: vscode.ExtensionContext) {
             }
         }),
 
-        vscode.commands.registerCommand('stm32-configurator-by-zuolan.healthCheck', async () => {
+        vscode.commands.registerCommand('stm32-flash-configurator.healthCheck', async () => {
             try {
                 const { ConfigurationScanner } = await import('./services/configurationScanner.js');
                 const scanner = new ConfigurationScanner();
@@ -272,7 +276,7 @@ export function activate(context: vscode.ExtensionContext) {
                     
                     vscode.window.showInformationMessage(details, { modal: true });
                 } else if (action === 'Auto-Fix Issues') {
-                    vscode.commands.executeCommand('stm32-configurator-by-zuolan.autoTroubleshoot');
+                    vscode.commands.executeCommand('stm32-flash-configurator.autoTroubleshoot');
                 }
             } catch (error) {
                 vscode.window.showErrorMessage(
@@ -281,7 +285,7 @@ export function activate(context: vscode.ExtensionContext) {
             }
         }),
 
-        vscode.commands.registerCommand('stm32-configurator-by-zuolan.start', async () => {
+        vscode.commands.registerCommand('stm32-flash-configurator.start', async () => {
             // Check for Cortex Debug extension
             if (!isCortexDebugInstalled()) {
                 const shouldProceed = await ensureCortexDebugInstalled();
@@ -298,8 +302,15 @@ export function activate(context: vscode.ExtensionContext) {
                 return;
             }
 
+            const folders = vscode.workspace.workspaceFolders ?? [];
+            if (!folders.length) { void vscode.window.showErrorMessage('请先打开项目文件夹。'); return; }
+            panelWorkspace = folders.length === 1 ? folders[0] : await vscode.window.showWorkspaceFolderPick({ placeHolder: '选择要生成配置的项目' });
+            if (!panelWorkspace) { return; }
+            stateManager = new StateManager(context, panelWorkspace.uri.toString());
+            currentWebviewState = undefined;
+            currentLiveWatchVariables = [];
             currentPanel = vscode.window.createWebviewPanel(
-                'stm32Configurator', 'STM32 Debug Configurator', vscode.ViewColumn.One,
+                'stm32FlashConfigurator', 'STM32 Flash Configurator', vscode.ViewColumn.One,
                 {
                     enableScripts: true,
                     retainContextWhenHidden: true, // Keep webview state when hidden
@@ -348,6 +359,25 @@ export function activate(context: vscode.ExtensionContext) {
             currentPanel.webview.onDidReceiveMessage(
                 async message => {
                     switch (message.command) {
+                        case 'flashNow':
+                            await vscode.commands.executeCommand('stm32-flash-configurator.flash');
+                            return;
+                        case 'getFlashOptions':
+                            try {
+                                currentPanel?.webview.postMessage({ command: 'flashOptions', presets: listBuildPresets(panelWorkspace!.uri.fsPath), folder: panelWorkspace!.name });
+                            } catch (error) {
+                                currentPanel?.webview.postMessage({ command: 'showError', error: String(error) });
+                            }
+                            return;
+                        case 'browseProjectCfg': {
+                            const selected = await vscode.window.showOpenDialog({ canSelectMany: false, filters: { 'OpenOCD configuration': ['cfg'] }, defaultUri: panelWorkspace!.uri });
+                            if (selected?.[0]) {
+                                const relative = path.relative(panelWorkspace!.uri.fsPath, selected[0].fsPath).replace(/\\/g, '/');
+                                const value = relative !== '..' && !relative.startsWith('../') && !path.isAbsolute(relative) ? '${workspaceFolder}/' + relative : selected[0].fsPath.replace(/\\/g, '/');
+                                currentPanel?.webview.postMessage({ command: 'projectCfgSelected', path: value });
+                            }
+                            return;
+                        }
                         case 'generate':
                             await generateConfiguration(message.data);
                             return;
@@ -378,7 +408,7 @@ export function activate(context: vscode.ExtensionContext) {
                                     if (action === 'Configure OpenOCD') {
                                         await showOpenOCDConfigurationWizard();
                                     } else if (action === 'Open Settings') {
-                                        vscode.commands.executeCommand('workbench.action.openSettings', 'stm32-configurator.openocdPath');
+                                        vscode.commands.executeCommand('workbench.action.openSettings', 'stm32-flash-configurator.openocdPath');
                                     }
                                 } else {
                                     const validation = await validateOpenOCDConfiguration(newPath);
@@ -593,7 +623,7 @@ export function activate(context: vscode.ExtensionContext) {
             // 扫描工作区检测 STM32 设备型号
             try {
                 console.log('[DeviceDetect] starting workspace scan...');
-                const detected = await detectStm32Device();
+                const detected = await detectStm32Device(panelWorkspace);
                 console.log('[DeviceDetect] result:', detected);
                 if (detected) {
                     currentPanel.webview.postMessage({
@@ -612,7 +642,7 @@ export function activate(context: vscode.ExtensionContext) {
 
             // 扫描工作区固件文件（.elf / .axf / .bin / .hex）
             try {
-                const execs = await detectExecutables();
+                const execs = await detectExecutables(panelWorkspace);
                 console.log('[ExecDetect] found', execs.length, 'firmware file(s)');
                 currentPanel.webview.postMessage({
                     command: 'updateExecutableCandidates',
@@ -627,16 +657,16 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register tree view commands
     context.subscriptions.push(
-        vscode.commands.registerCommand('stm32-configurator-by-zuolan.refresh', () => {
+        vscode.commands.registerCommand('stm32-flash-configurator.refresh', () => {
             treeDataProvider.refresh();
         }),
         
-        vscode.commands.registerCommand('stm32-configurator-by-zuolan.openConfig', async (config: DebugConfiguration) => {
+        vscode.commands.registerCommand('stm32-flash-configurator.openConfig', async (config: DebugConfiguration) => {
             await openDebugConfiguration(config);
         }),
 
         // Runtime livewatch management commands
-        vscode.commands.registerCommand('stm32-configurator-by-zuolan.addLiveWatchVariable', async () => {
+        vscode.commands.registerCommand('stm32-flash-configurator.addLiveWatchVariable', async () => {
             const variable = await vscode.window.showInputBox({
                 prompt: localizationManager.getString('variableName'),
                 placeHolder: 'e.g., myVariable, myStruct.field'
@@ -646,7 +676,7 @@ export function activate(context: vscode.ExtensionContext) {
             }
         }),
 
-        vscode.commands.registerCommand('stm32-configurator-by-zuolan.removeLiveWatchVariable', async () => {
+        vscode.commands.registerCommand('stm32-flash-configurator.removeLiveWatchVariable', async () => {
             if (currentLiveWatchVariables.length === 0) {
                 vscode.window.showInformationMessage('No livewatch variables to remove.');
                 return;
@@ -660,7 +690,7 @@ export function activate(context: vscode.ExtensionContext) {
             }
         }),
 
-        vscode.commands.registerCommand('stm32-configurator-by-zuolan.toggleLanguage', () => {
+        vscode.commands.registerCommand('stm32-flash-configurator.toggleLanguage', () => {
             const currentLang = localizationManager.getCurrentLanguage();
             const newLang: SupportedLanguage = currentLang === 'en' ? 'zh' : 'en';
             localizationManager.switchLanguage(newLang);
@@ -675,7 +705,7 @@ export function activate(context: vscode.ExtensionContext) {
             }
         }),
 
-        vscode.commands.registerCommand('stm32-configurator-by-zuolan.setupToolchain', async () => {
+        vscode.commands.registerCommand('stm32-flash-configurator.setupToolchain', async () => {
             try {
                 // Show quick pick for user to choose setup method
                 const setupOption = await vscode.window.showQuickPick([
@@ -697,10 +727,10 @@ export function activate(context: vscode.ExtensionContext) {
                 
                 if (setupOption?.value === 'wizard') {
                     // Use the detectToolchain command
-                    vscode.commands.executeCommand('stm32-configurator-by-zuolan.detectToolchain');
+                    vscode.commands.executeCommand('stm32-flash-configurator.detectToolchain');
                 } else if (setupOption?.value === 'manual') {
                     // Open settings for manual configuration
-                    vscode.commands.executeCommand('workbench.action.openSettings', 'stm32-configurator');
+                    vscode.commands.executeCommand('workbench.action.openSettings', 'stm32-flash-configurator');
                 }
                 
             } catch (error) {
@@ -771,17 +801,10 @@ async function generateConfiguration(data: any) {
             return;
         }
     }
-    if (data.servertype === 'openocd' && data.openocdPath && data.openocdPath.trim() !== '') {
-        try {
-            const cortexDebugConfig = vscode.workspace.getConfiguration('cortex-debug');
-            // 标准化OpenOCD路径，将反斜杠转换为正斜杠
-            const normalizedOpenOCDPath = normalizePath(data.openocdPath);
-            await cortexDebugConfig.update('openocdPath', normalizedOpenOCDPath, vscode.ConfigurationTarget.Global);
-            vscode.window.showInformationMessage(`Cortex-Debug 'openocdPath' has been set globally.`);
-        } catch (e) { vscode.window.showErrorMessage(`Failed to set Cortex-Debug 'openocdPath'. Error: ${e}`); }
-    }
     const newConfig: any = {
-        "name": `Debug (${data.deviceName})`,
+        "name": data.configurationName?.trim() || (data.buildPreset
+            ? `${path.basename(data.executablePath)} [${data.buildPreset}]`
+            : `Debug (${data.deviceName}) — ${path.basename(data.executablePath)}`),
         "type": "cortex-debug",
         "request": "launch",
         "servertype": data.servertype,
@@ -800,10 +823,9 @@ async function generateConfiguration(data: any) {
     // cortex-debug 的 armToolchainPath 字段期望 bin 目录，不是 gcc.exe 路径
     if (data.armToolchainPath && data.armToolchainPath.trim() !== '') {
         try {
-            const cortexDebugConfig = vscode.workspace.getConfiguration('cortex-debug');
             const normalizedArmToolchainPath = normalizePath(data.armToolchainPath);
             const portableBinDir = toolchainBinDir(normalizedArmToolchainPath);
-            await cortexDebugConfig.update('armToolchainPath', portableBinDir, vscode.ConfigurationTarget.Global);
+
             newConfig.armToolchainPath = portableBinDir;
             newConfig.gdbPath = deriveGdbPath(normalizedArmToolchainPath);
             console.log(`Cortex-Debug 'armToolchainPath' has been set to: ${portableBinDir}`);
@@ -848,49 +870,34 @@ async function generateConfiguration(data: any) {
     }
     if (data.servertype === 'openocd') {
         const transport = (data.transportInterface === 'jtag' ? 'jtag' : 'swd');
-        newConfig.serverpath = 'openocd';
+        newConfig.serverpath = normalizePath(data.openocdPath);
         newConfig.interface = transport;
-        newConfig.configFiles = [`interface/${data.interfaceFile}`, `target/${data.targetFile}`];
-        newConfig.openOCDLaunchCommands = [
-            `transport select ${transport}`,
-            `adapter speed ${data.adapterSpeed}`
-        ];
-    } else if (data.servertype === 'pyocd') { newConfig.targetId = data.targetFile; }
-    const workspaceFolder = vscode.workspace.workspaceFolders[0].uri;
-    const dotVscodeFolder = vscode.Uri.joinPath(workspaceFolder, '.vscode');
-    const launchJsonPath = vscode.Uri.joinPath(dotVscodeFolder, 'launch.json');
-    try {
-        if (!fs.existsSync(dotVscodeFolder.fsPath)) { fs.mkdirSync(dotVscodeFolder.fsPath); }
-        let launchConfig: any = { version: "0.2.0", configurations: [] };
-        if (fs.existsSync(launchJsonPath.fsPath)) {
-            const content = fs.readFileSync(launchJsonPath.fsPath, 'utf8');
-            if (content.trim()) {
-                try {
-                    launchConfig = JSON.parse(content);
-                    if (!launchConfig.configurations) { launchConfig.configurations = []; }
-                } catch (parseError) {
-                    console.warn('Failed to parse existing launch.json, using default configuration:', parseError);
-                    vscode.window.showWarningMessage('Existing launch.json has invalid format. Creating new configuration.');
-                    // Keep default launchConfig with empty configurations
-                }
+        if (data.useProjectCfg) {
+            if (!data.projectCfg?.trim()) { void vscode.window.showErrorMessage('请选择项目内的 OpenOCD cfg 文件。'); return; }
+            newConfig.configFiles = [data.projectCfg.trim()];
+        } else {
+            if (!data.interfaceFile || !data.targetFile || !/^[1-9]\d*$/.test(String(data.adapterSpeed))) {
+                void vscode.window.showErrorMessage('请选择接口、目标文件并填写有效的适配器速度。'); return;
             }
+            newConfig.configFiles = [`interface/${data.interfaceFile}`, `target/${data.targetFile}`];
+            newConfig.openOCDLaunchCommands = [`transport select ${transport}`, `adapter speed ${data.adapterSpeed}`];
         }
-        launchConfig.configurations.unshift(newConfig);
-        
-        // Safely stringify the configuration with error handling
-        let jsonString: string;
-        try {
-            jsonString = JSON.stringify(launchConfig, null, 4);
-        } catch (stringifyError: any) {
-            console.error('Failed to stringify launch configuration:', stringifyError);
-            console.error('Problematic config object:', newConfig);
-            throw new Error(`Failed to generate JSON configuration: ${stringifyError?.message || String(stringifyError)}`);
+    } else if (data.servertype === 'pyocd') { newConfig.targetId = data.targetFile; }
+    const folder = panelWorkspace ?? vscode.workspace.workspaceFolders[0];
+    try {
+        if (!(await vscode.workspace.saveAll(false))) { throw new Error('请先保存项目文件。'); }
+        const enabled = data.flashEnabled && data.servertype === 'openocd';
+        if (enabled && !listBuildPresets(folder.uri.fsPath).includes(data.buildPreset)) {
+            throw new Error('请选择当前项目有效的 CMake 构建预设。');
         }
-        
-        fs.writeFileSync(launchJsonPath.fsPath, jsonString);
-        
+        newConfig.name = writeConfiguration(folder.uri.fsPath, newConfig, enabled ? {
+            name: data.configurationName, executable: data.executablePath,
+            buildPreset: data.buildPreset, openocdPath: newConfig.serverpath,
+            configFiles: newConfig.configFiles, launchCommands: newConfig.openOCDLaunchCommands ?? []
+        } : undefined);
+        currentPanel?.webview.postMessage({ command: 'generationComplete', name: newConfig.name, flashEnabled: enabled });
         // Generate success message with livewatch status
-        let successMessage = localizationManager.getString('configGenerated');
+        let successMessage = enabled ? `配置已生成：${newConfig.name}。F5 调试；Ctrl+F5 自动编译、烧录并退出。` : localizationManager.getString('configGenerated');
         if (data.liveWatch && data.liveWatch.enabled) {
             const variableCount = data.liveWatch.variables ? data.liveWatch.variables.length : 0;
             currentLiveWatchVariables = data.liveWatch.variables || [];

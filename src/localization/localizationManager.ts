@@ -158,7 +158,7 @@ export class LocalizationManager {
      * @private
      */
     private loadLanguage(): void {
-        const savedLanguage = this.context.globalState.get<SupportedLanguage>('stm32-configurator.language');
+        const savedLanguage = this.context.globalState.get<SupportedLanguage>('stm32-flash-configurator.language');
         if (savedLanguage && (savedLanguage === 'en' || savedLanguage === 'zh')) {
             this.switchLanguage(savedLanguage);
             return;
@@ -179,6 +179,6 @@ export class LocalizationManager {
      * @private
      */
     private saveLanguage(): void {
-        this.context.globalState.update('stm32-configurator.language', this.currentLanguage);
+        this.context.globalState.update('stm32-flash-configurator.language', this.currentLanguage);
     }
 }

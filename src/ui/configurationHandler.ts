@@ -44,7 +44,7 @@ export class ConfigurationHandler {
      */
     private async saveOpenOCDConfiguration(path: string): Promise<void> {
         const config = vscode.workspace.getConfiguration();
-        await config.update('stm32-configurator.openocdPath', path, 
+        await config.update('stm32-flash-configurator.openocdPath', path,
                           vscode.ConfigurationTarget.Global);
     }
 

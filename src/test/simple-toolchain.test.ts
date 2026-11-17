@@ -122,7 +122,7 @@ describe('Simple Toolchain Guidance Tests', () => {
 
     describe('Configuration Management', () => {
         it('should handle VS Code configuration access', () => {
-            const config = vscode.workspace.getConfiguration('stm32-configurator');
+            const config = vscode.workspace.getConfiguration('stm32-flash-configurator');
             
             assert.ok(config);
             assert.ok(typeof config.get === 'function');

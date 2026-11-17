@@ -52,6 +52,10 @@
                     </div>
                 </div>
 
+                <div class="field">
+                    <label for="configurationName" data-i18n="configurationName">Configuration name (optional)</label>
+                    <input type="text" id="configurationName" placeholder="LED / Chassis / Gimbal">
+                </div>
                 <div class="field hidden" id="manual-elf-path-group"></div>
             </section>
 
@@ -118,7 +122,17 @@
                         </div>
                     </div>
 
-                    <div class="row row-2">
+                    <div class="field toggle-field">
+                        <label class="toggle-label"><input type="checkbox" id="useProjectCfg"><span data-i18n="useProjectCfg">Use a project OpenOCD cfg</span></label>
+                    </div>
+                    <div class="field hidden" id="project-cfg-group">
+                        <div class="input-row">
+                            <input id="projectCfg" type="text" placeholder="${workspaceFolder}/daplink.cfg">
+                            <button class="btn-secondary" id="browse-project-cfg" data-i18n="browseButton">Browse</button>
+                        </div>
+                        <small class="hint" data-i18n="projectCfgHelp">The cfg supplies probe, target, transport and speed.</small>
+                    </div>
+                    <div class="row row-2" id="builtin-cfg-group">
                         <div class="field">
                             <label for="interfaceFile" data-i18n="interfaceFile">Interface File</label>
                             <input type="text" id="interfaceFile" class="picker-trigger" readonly
@@ -133,6 +147,19 @@
                 </div>
             </section>
 
+            <section class="card span-12" id="flash-section">
+                <div class="card-title"><h2 data-i18n="flashTitle">Build, flash and run</h2></div>
+                <small class="hint" id="flash-workspace"></small>
+                <div class="field toggle-field">
+                    <label class="toggle-label"><input type="checkbox" id="flashEnabled" checked><span data-i18n="flashEnabled">Ctrl+F5: build, flash and exit</span></label>
+                </div>
+                <div class="field" id="build-preset-group">
+                    <label for="buildPreset" data-i18n="buildPreset">CMake build preset</label>
+                    <select id="buildPreset"></select>
+                    <small class="hint" data-i18n="flashHelp">Saves your files, builds the selected preset, programs and verifies the selected firmware, then runs the board and exits OpenOCD. F5 still debugs.</small>
+                    <small class="hint hidden" id="no-build-presets" data-i18n="noBuildPresets">No build presets found. Add a build preset in CMake before enabling this option.</small>
+                </div>
+            </section>
             <!-- Card: ARM Toolchain -->
             <section class="card span-12" id="arm-toolchain-section">
                 <div class="card-title">
@@ -214,6 +241,7 @@
         <!-- Footer / generate button -->
         <footer class="app-footer">
             <button id="generate-button" class="btn-primary" data-i18n="generateButton">Generate Configuration</button>
+            <button id="flash-button" class="btn-secondary" data-i18n="flashNow">Build and Flash</button>
             <p class="footer-credit" data-i18n="createdBy">Created by 左岚</p>
         </footer>
     </div>
